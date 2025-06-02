@@ -6,11 +6,11 @@ import 'leaflet/dist/leaflet.css';
 import { ScrollArea } from './components/ui/scroll-area';
 import { Button } from './components/ui/button';
 import { Card } from './components/ui/card';
-import { getDocument, GlobalWorkerOptions, PDFDocumentProxy, TextItem } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions, PDFDocumentProxy, TextItem } from 'pdfjs-dist/build/pdf.js';
 import { useToast } from './hooks/use-toast';
 
 // Set worker source for pdfjs-dist
-GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.js', import.meta.url).toString();
 
 // Define the type for EPD data based on sampleEpdData structure
 type EpdDataType = {
