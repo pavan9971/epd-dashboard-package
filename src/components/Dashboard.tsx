@@ -13,13 +13,14 @@ import LifeCycleAnalysis from './LifeCycleAnalysis';
 
 interface DashboardProps {
   data: any[];
-  onFileUpload: (files: FileList) => void;
+  onFileUpload: (files: FileList | null) => void; // Updated to allow null
+  isProcessingPdf: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, onFileUpload }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, onFileUpload, isProcessingPdf }) => {
   const [activeTab, setActiveTab] = useState('environmental');
   const [comparisonMode, setComparisonMode] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  // const [uploadProgress, setUploadProgress] = useState(0); // Removed
 
   const calculateTotalImpact = (metricKey: string) => {
     if (!data?.[0]?.environmentalImpacts?.[metricKey]) return 0;
@@ -28,18 +29,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onFileUpload }) => {
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      // Simulate upload progress
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        setUploadProgress(progress);
-        if (progress >= 100) {
-          clearInterval(interval);
-          onFileUpload(event.target.files!);
-          setTimeout(() => setUploadProgress(0), 1000);
-        }
-      }, 200);
+    if (event.target.files) {
+      onFileUpload(event.target.files);
+    } else {
+      onFileUpload(null);
     }
   };
 
@@ -59,34 +52,43 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onFileUpload }) => {
                 onChange={handleFileChange}
                 className="hidden"
                 id="file-upload"
+                disabled={isProcessingPdf}
               />
               <Button
                 asChild
                 variant="secondary"
                 className="relative overflow-hidden"
+                disabled={isProcessingPdf}
               >
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  Upload EPD Files
+                <label htmlFor="file-upload" className={`cursor-pointer ${isProcessingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  {isProcessingPdf ? 'Processing PDF...' : 'Upload EPD Files'}
                 </label>
               </Button>
-              {uploadProgress > 0 && (
-                <Progress value={uploadProgress} className="w-full mt-2" />
-              )}
+              {/* Removed uploadProgress */}
             </div>
             <div className="flex items-center space-x-2">
               <Switch
                 checked={comparisonMode}
                 onCheckedChange={setComparisonMode}
                 id="comparison-mode"
+                disabled={isProcessingPdf}
               />
-              <Label htmlFor="comparison-mode">Comparison Mode</Label>
+              <Label htmlFor="comparison-mode" className={`${isProcessingPdf ? 'opacity-50' : ''}`}>Comparison Mode</Label>
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Quick Metrics Overview */}
-      {data.length > 0 && (
+      {/* Quick Metrics Overview - Conditionally render or show loading */}
+      {isProcessingPdf && (
+        <Alert variant="default" className="bg-yellow-50 border-yellow-300 text-yellow-700">
+          <AlertDescription>
+            Processing PDF, please wait...
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!isProcessingPdf && data.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="bg-gradient-to-br from-green-50 to-emerald-100">
             <CardHeader>
@@ -115,8 +117,8 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onFileUpload }) => {
         </div>
       )}
 
-      {/* No Data Alert */}
-      {!data.length && (
+      {/* No Data Alert - Conditionally render */}
+      {!isProcessingPdf && !data.length && (
         <Alert variant="default" className="bg-blue-50">
           <AlertDescription>
             Upload an EPD file to start analyzing environmental impacts.

@@ -6,9 +6,32 @@ import 'leaflet/dist/leaflet.css';
 import { ScrollArea } from './components/ui/scroll-area';
 import { Button } from './components/ui/button';
 import { Card } from './components/ui/card';
+import { getDocument, GlobalWorkerOptions, PDFDocumentProxy, TextItem } from 'pdfjs-dist';
+import { useToast } from './hooks/use-toast';
 
-// Import the sample EPD data
-const sampleEpdData = [
+// Set worker source for pdfjs-dist
+GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+
+// Define the type for EPD data based on sampleEpdData structure
+type EpdDataType = {
+  productName: string;
+  manufacturer: string;
+  manufacturerLocation: string;
+  productDescription: string;
+  environmentalImpacts: {
+    [key: string]: { [key: string]: number };
+  };
+  lifeCycleStages: { [key: string]: string };
+  complianceStandards: string[];
+  metadata: {
+    publicationDate: string;
+    validUntil: string;
+    verificationNumber: string;
+  };
+};
+
+// Sample EPD data (remains for fallback and structure reference)
+const sampleEpdData: EpdDataType[] = [
   {
     "productName": "Gramitherm© 100",
     "manufacturer": "GRAMITHERM",
@@ -168,10 +191,106 @@ const sampleEpdData = [
       "verificationNumber": "PEP-FR-2023-0125"
     }
   }
+  // ... (rest of sampleEpdData remains the same)
 ];
 
 const App: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
+  const [extractedData, setExtractedData] = useState<EpdDataType[] | null>(null);
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const { toast } = useToast();
+
+  const onFileUpload = async (files: FileList | null) => {
+    setIsProcessingPdf(true);
+    try {
+      if (!files || files.length === 0) {
+        console.log('No files selected.');
+        setExtractedData(null); // Clear previous data if no file is selected
+        return;
+      }
+
+      const file = files[0];
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      if (event.target?.result) {
+        const arrayBuffer = event.target.result as ArrayBuffer;
+        try {
+          const pdf: PDFDocumentProxy = await getDocument({ data: arrayBuffer }).promise;
+          let fullText = '';
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => (item as TextItem).str).join(' ');
+            fullText += pageText + '\n';
+          }
+
+          console.log('Extracted Text:', fullText);
+
+          // Placeholder: Create dummy data (using a modified version of the first sampleEpdData item)
+          const dummyEpdData: EpdDataType = {
+            ...sampleEpdData[0], // Base it on the first sample
+            productName: "Extracted Product Alpha",
+            manufacturer: "PDF Extractor Inc.",
+            productDescription: "This data was extracted from a PDF (dummy). Original text logged to console.",
+            environmentalImpacts: {
+              ...sampleEpdData[0].environmentalImpacts,
+              gwpTotal: {
+                ...sampleEpdData[0].environmentalImpacts.gwpTotal,
+                a1a3: 0.123, // Dummy value
+                c4: 2.345,   // Dummy value
+              }
+            },
+            metadata: {
+              ...sampleEpdData[0].metadata,
+              publicationDate: new Date().toLocaleDateString(),
+              verificationNumber: "PDF-EXTRACTED-" + new Date().getTime(),
+            }
+          };
+          setExtractedData([dummyEpdData]); // Set as an array
+          toast({
+            title: "PDF Processed (Placeholder Data)",
+            description: "Text extracted from PDF. Displaying placeholder EPD data for now.",
+          });
+
+        } catch (error) {
+          console.error('Error parsing PDF:', error);
+          setExtractedData(null); // Reset or handle error state
+          toast({
+            variant: "destructive",
+            title: "Error Processing PDF",
+            description: "Could not extract data from the PDF. Please ensure it's a valid EPD document and try again.",
+          });
+        }
+      }
+    };
+
+    reader.onerror = (error) => {
+      console.error('Error reading file:', error);
+      setExtractedData(null);
+      toast({
+        variant: "destructive",
+        title: "Error Reading File",
+        description: "Could not read the selected file.",
+      });
+      // setIsProcessingPdf(false); // Moved to finally
+    };
+
+    reader.readAsArrayBuffer(file);
+    } catch (outerError) {
+      console.error("Outer error in onFileUpload:", outerError);
+      setExtractedData(null);
+      toast({
+        variant: "destructive",
+        title: "Unexpected Error",
+        description: "An unexpected error occurred during file processing.",
+      });
+      // setIsProcessingPdf(false); // Moved to finally
+    } finally {
+      setIsProcessingPdf(false);
+    }
+  };
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -179,7 +298,11 @@ const App: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-xl rounded-xl p-6">
             <ScrollArea className="h-[90vh]">
-              <Dashboard data={sampleEpdData} onFileUpload={(files) => console.log('Files uploaded:', files)} />
+              <Dashboard
+                data={extractedData || sampleEpdData}
+                onFileUpload={onFileUpload}
+                isProcessingPdf={isProcessingPdf}
+              />
             </ScrollArea>
           </Card>
           <Button
