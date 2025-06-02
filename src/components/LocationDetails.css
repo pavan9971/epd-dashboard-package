@@ -1,0 +1,21 @@
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+.map-container {
+  position: relative;
+  height: 400px;
+  width: 100%;
+  z-index: 0;
+}
+
+/* Fix for map markers */
+.leaflet-marker-icon {
+  z-index: 1000 !important;
+}
+
+.leaflet-popup {
+  z-index: 1001 !important;
+}
